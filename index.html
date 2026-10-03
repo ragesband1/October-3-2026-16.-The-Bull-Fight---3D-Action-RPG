@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>16. The Bull Fight - 3D Action RPG</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js 3D Engine -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=MedievalSharp&family=Montserrat:wght@300;400;600;800&display=swap');
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Montserrat', sans-serif;
+            user-select: none;
+            background-color: #050505;
+            color: #fff;
+        }
+
+        .font-cinzel { font-family: 'Cinzel', serif; }
+        .font-medieval { font-family: 'MedievalSharp', cursive; }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.5); }
+        ::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 3px; }
+
+        /* UI Glassmorphism & Gold Borders */
+        .gold-border {
+            border: 2px solid #d4af37;
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.3), inset 0 0 10px rgba(212, 175, 55, 0.2);
+        }
+
+        .gold-gradient-text {
+            background: linear-gradient(135deg, #fff2a3 0%, #d4af37 50%, #aa7c11 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .arena-panel {
+            background: linear-gradient(180deg, rgba(20, 15, 10, 0.85) 0%, rgba(5, 5, 5, 0.95) 100%);
+            backdrop-filter: blur(8px);
+        }
+
+        /* Health & Gauge Bars */
+        .bar-container {
+            position: relative;
+            background: rgba(0,0,0,0.7);
+            border: 1px solid rgba(212, 175, 55, 0.5);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            transition: width 0.2s ease-out;
+        }
+
+        /* Controls Touch Overlay */
+        .touch-btn {
+            background: rgba(212, 175, 55, 0.2);
+            border: 2px solid #d4af37;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+            touch-action: manipulation;
+        }
+
+        .touch-btn:active {
+            background: rgba(212, 175, 55, 0.6);
+            transform: scale(0.95);
+        }
+
+        /* Crosshair */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+        }
+
+        /* Canvas */
+        #gameCanvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+
+        /* Animations */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 15px rgba(212, 175, 55, 0.4); }
+            50% { box-shadow: 0 0 25px rgba(212, 175, 55, 0.8); }
+        }
+
+        .pulse-gold {
+            animation: pulse-glow 2s infinite;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <canvas id="gameCanvas"></canvas>
+    <div id="crosshair" class="hidden"></div>
+
+    <!-- MAIN MENU OVERLAY -->
+    <div id="mainMenu" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/90 p-4">
+        <div class="max-w-3xl w-full text-center space-y-6 arena-panel p-8 rounded-2xl gold-border pulse-gold">
+            <h2 class="text-sm tracking-widest text-amber-400 font-semibold uppercase">Mr. Cratburry Kitkats Presents - March 7, 2017</h2>
+            <h1 class="text-4xl md:text-6xl font-black font-cinzel gold-gradient-text tracking-wider">16. THE BULL FIGHT</h1>
+            <p class="text-gray-300 italic text-sm md:text-base max-w-xl mx-auto">
+                "Geas is the most professional fighter who never learned to become humble. In the Parthenon Arena, he faces Bullion, a mighty bull full of humility..."
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
+                <div class="bg-black/60 p-4 rounded-xl border border-amber-500/30">
+                    <i class="fa-solid fa-khanda text-3xl text-amber-400 mb-2"></i>
+                    <h3 class="font-cinzel font-bold text-amber-300">Gladiator Class</h3>
+                    <p class="text-xs text-gray-400">High Attack, Balanced Defense. Geas' default stance.</p>
+                </div>
+                <div class="bg-black/60 p-4 rounded-xl border border-amber-500/30">
+                    <i class="fa-solid fa-shield-halved text-3xl text-amber-400 mb-2"></i>
+                    <h3 class="font-cinzel font-bold text-amber-300">Humble Champion</h3>
+                    <p class="text-xs text-gray-400">Higher Defense & Parry windows. Absorbs Pride penalty.</p>
+                </div>
+                <div class="bg-black/60 p-4 rounded-xl border border-amber-500/30">
+                    <i class="fa-solid fa-bolt text-3xl text-amber-400 mb-2"></i>
+                    <h3 class="font-cinzel font-bold text-amber-300">Arena Berserker</h3>
+                    <p class="text-xs text-gray-400">Aggressive strike power, but takes double damage when Pride is high.</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <button id="btnStartGame" class="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-amber-600 via-yellow-500 to-amber-700 text-black font-bold font-cinzel rounded-xl hover:brightness-125 transition transform active:scale-95 shadow-lg">
+                    ENTER THE PARTHENON
+                </button>
+                <button id="btnStoryModal" class="w-full sm:w-auto px-6 py-4 bg-gray-800/80 hover:bg-gray-700 text-amber-300 font-cinzel rounded-xl border border-amber-500/50 transition">
+                    READ FULL STORY
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STORY MODAL -->
+    <div id="storyModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/85 p-4">
+        <div class="max-w-2xl w-full arena-panel p-6 rounded-xl gold-border max-h-[80vh] overflow-y-auto relative">
+            <button id="btnCloseStory" class="absolute top-4 right-4 text-amber-400 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="text-2xl font-cinzel text-amber-400 font-bold mb-2">Chapter 8: The Bull Fight</h2>
+            <p class="text-xs text-amber-200/60 mb-4">By Mr. Cratburry Kitkats - March 7, 2017</p>
+            <div class="space-y-4 text-sm text-gray-200 leading-relaxed font-serif bg-black/40 p-4 rounded-lg border border-amber-900/40">
+                <p>Once upon a time there lived a Parthenon in the stage when all the people want to watch “The Bull Fight” they didn’t ever know who would became a champion if a bull of a man the bull was named Bullion while the man who wants to defeat the bull in the Parthenon called Geas.</p>
+                <p>Geas is the most professional fighter he doesn’t learn to become humble so he only thought that’s the result of winning while the bull named Bullion is full of humble as when the Parthenon Battle starts on a fight Geas is brutally underestimate the bull because for insanity/hardships in fighting.</p>
+                <p>Bullion won suddenly when Geas defeated their is medical treatment for him. He went to the hospital for his injury Geas lost his arms bleeded too much as the result of dying Geas stab his own life because he don’t win that Bull Fight for making pride that’s why happen for Geas he make a suicide in lack of confidence.</p>
+                <div class="border-t border-amber-500/40 pt-3 mt-4 text-amber-300 font-bold italic">
+                    Moral Lesson: In every destined fight the only to defeat an enemy is humble, according to this story Geas is defeated with pride so Bullion won because of making humble.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IN-GAME HUD -->
+    <div id="gameHUD" class="fixed inset-0 pointer-events-none hidden flex flex-col justify-between p-4 z-20">
+        <!-- TOP HUD: Player Info & Boss Health -->
+        <div class="flex flex-col md:flex-row justify-between items-start gap-4 w-full">
+            <!-- Player Status Panel -->
+            <div class="arena-panel p-3 rounded-xl gold-border pointer-events-auto flex items-center gap-3 w-full md:w-80">
+                <div class="relative">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-tr from-amber-700 to-yellow-400 flex items-center justify-center font-bold text-lg font-cinzel border-2 border-amber-300 text-black shadow-md">
+                        G
+                    </div>
+                    <span id="playerLvlTag" class="absolute -bottom-1 -right-1 bg-amber-500 text-black text-[10px] font-black px-1.5 py-0.5 rounded-full">LVL 1</span>
+                </div>
+                <div class="flex-1 space-y-1">
+                    <div class="flex justify-between text-xs font-cinzel font-bold text-amber-300">
+                        <span>GEAS <span id="playerClassTag" class="text-[10px] text-gray-400">(Gladiator)</span></span>
+                        <span id="hpText">100 / 100</span>
+                    </div>
+                    <!-- HP Bar -->
+                    <div class="bar-container h-3">
+                        <div id="hpBar" class="bar-fill bg-gradient-to-r from-red-600 to-emerald-500" style="width: 100%;"></div>
+                    </div>
+                    <!-- Stamina Bar -->
+                    <div class="bar-container h-2">
+                        <div id="staminaBar" class="bar-fill bg-amber-400" style="width: 100%;"></div>
+                    </div>
+                    <!-- Pride / Humility Meter -->
+                    <div class="pt-1">
+                        <div class="flex justify-between text-[10px] font-bold">
+                            <span class="text-blue-400"><i class="fa-solid fa-dove"></i> Humility (<span id="humilityVal">20%</span>)</span>
+                            <span class="text-red-400">Pride (<span id="prideVal">80%</span>) <i class="fa-solid fa-fire"></i></span>
+                        </div>
+                        <div class="bar-container h-2 mt-0.5 bg-blue-950">
+                            <div id="prideBar" class="bar-fill bg-gradient-to-r from-blue-500 via-purple-500 to-red-600" style="width: 80%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOSS HEALTH BAR (Appears during Boss Battle) -->
+            <div id="bossPanel" class="arena-panel p-3 rounded-xl gold-border w-full md:w-1/2 mx-auto pointer-events-auto transition-all duration-500 opacity-0 transform -translate-y-4">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="font-cinzel font-black text-amber-400 tracking-wide text-sm md:text-base">
+                        <i class="fa-solid fa-skull text-red-500 mr-2"></i>BULLION THE MIGHTY BULL
+                    </span>
+                    <span id="bossHpText" class="text-xs text-red-300 font-bold">1000 / 1000</span>
+                </div>
+                <div class="bar-container h-4 bg-gray-900">
+                    <div id="bossHpBar" class="bar-fill bg-gradient-to-r from-red-800 via-red-600 to-orange-500" style="width: 100%;"></div>
+                </div>
+                <div class="text-[10px] text-amber-200/70 italic text-center mt-1">
+                    "Full of humility in the Parthenon. Prideful strikes will be deflected!"
+                </div>
+            </div>
+
+            <!-- Mini Map & Action Buttons -->
+            <div class="flex items-center gap-2 pointer-events-auto self-end md:self-start">
+                <div class="relative w-24 h-24 rounded-full border-2 border-amber-500 bg-black/80 overflow-hidden shadow-lg">
+                    <canvas id="minimapCanvas" width="96" height="96"></canvas>
+                    <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div class="w-1.5 h-1.5 bg-green-400 rounded-full border border-black"></div>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <button id="btnOpenInventory" class="p-2 bg-gray-900/90 hover:bg-amber-800 text-amber-300 rounded-lg border border-amber-500/50 text-xs font-cinzel">
+                        <i class="fa-solid fa-briefcase block text-sm"></i> Bag
+                    </button>
+                    <button id="btnOpenSkills" class="p-2 bg-gray-900/90 hover:bg-amber-800 text-amber-300 rounded-lg border border-amber-500/50 text-xs font-cinzel">
+                        <i class="fa-solid fa-diagram-project block text-sm"></i> Skills
+                    </button>
+                    <button id="btnOpenQuests" class="p-2 bg-gray-900/90 hover:bg-amber-800 text-amber-300 rounded-lg border border-amber-500/50 text-xs font-cinzel">
+                        <i class="fa-solid fa-scroll block text-sm"></i> Quests
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUEST TRACKER BANNER -->
+        <div id="questTracker" class="arena-panel p-2.5 rounded-lg border-l-4 border-amber-500 max-w-xs pointer-events-auto my-auto text-xs space-y-1">
+            <div class="font-cinzel font-bold text-amber-400 flex items-center justify-between">
+                <span><i class="fa-solid fa-location-dot mr-1"></i> Current Quest</span>
+                <span id="questStatus" class="text-[10px] text-emerald-400 font-normal">Active</span>
+            </div>
+            <p id="questTitle" class="font-semibold text-gray-200">Talk to Arena Master</p>
+            <p id="questDesc" class="text-gray-400 text-[11px]">Find the Arena Master in the Parthenon entrance to register for the fight.</p>
+        </div>
+
+        <!-- BOTTOM HUD: Combat Controls & Quick Stance Toggle -->
+        <div class="flex flex-col sm:flex-row justify-between items-end gap-2 w-full pointer-events-auto">
+            <!-- Dynamic Dialogue & Narrative Box -->
+            <div id="dialogueBox" class="arena-panel p-4 rounded-xl gold-border w-full sm:w-2/3 max-w-xl text-xs md:text-sm hidden relative">
+                <button id="btnCloseDialogue" class="absolute top-2 right-2 text-gray-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <div class="font-cinzel font-bold text-amber-400 mb-1" id="dialogueSpeaker">Arena Master</div>
+                <p id="dialogueText" class="text-gray-200 leading-relaxed italic">"Welcome Geas! You boast much skill, but Bullion is no ordinary bull..."</p>
+                <div id="dialogueOptions" class="flex gap-2 mt-3 flex-wrap"></div>
+            </div>
+
+            <!-- Stance Toggle & Combat Keys (Desktop / Mobile Info) -->
+            <div class="flex items-center gap-3 bg-black/80 p-2 rounded-xl border border-amber-500/40 ml-auto">
+                <button id="btnToggleStance" class="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-700 to-indigo-800 text-white font-cinzel text-xs font-bold border border-blue-400 hover:brightness-125 transition">
+                    <i class="fa-solid fa-yin-yang mr-1"></i> <span id="stanceText">Stance: Humble Guard</span>
+                </button>
+                <div class="hidden lg:flex gap-3 text-[10px] text-gray-300">
+                    <span class="bg-gray-800 px-2 py-1 rounded border border-gray-600"><kbd class="text-amber-400 font-bold">WASD</kbd> Move</span>
+                    <span class="bg-gray-800 px-2 py-1 rounded border border-gray-600"><kbd class="text-amber-400 font-bold">L-Click</kbd> Attack</span>
+                    <span class="bg-gray-800 px-2 py-1 rounded border border-gray-600"><kbd class="text-amber-400 font-bold">R-Click</kbd> Heavy</span>
+                    <span class="bg-gray-800 px-2 py-1 rounded border border-gray-600"><kbd class="text-amber-400 font-bold">SPACE</kbd> Dodge</span>
+                    <span class="bg-gray-800 px-2 py-1 rounded border border-gray-600"><kbd class="text-amber-400 font-bold">F</kbd> Camera View</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOUCH CONTROLS OVERLAY (Mobile) -->
+    <div id="touchControls" class="fixed inset-0 pointer-events-none z-30 hidden flex justify-between p-6 items-end">
+        <!-- D-Pad Left -->
+        <div class="w-32 h-32 relative pointer-events-auto">
+            <button id="btnUp" class="touch-btn absolute top-0 left-11 w-10 h-10"><i class="fa-solid fa-chevron-up"></i></button>
+            <button id="btnDown" class="touch-btn absolute bottom-0 left-11 w-10 h-10"><i class="fa-solid fa-chevron-down"></i></button>
+            <button id="btnLeft" class="touch-btn absolute top-11 left-0 w-10 h-10"><i class="fa-solid fa-chevron-left"></i></button>
+            <button id="btnRight" class="touch-btn absolute top-11 right-0 w-10 h-10"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
+        <!-- Actions Right -->
+        <div class="flex gap-3 pointer-events-auto">
+            <button id="btnTouchDodge" class="touch-btn w-14 h-14 bg-amber-900/60 font-bold text-xs">DODGE</button>
+            <button id="btnTouchAttack" class="touch-btn w-16 h-16 bg-red-800/80 font-bold text-sm"><i class="fa-solid fa-burst text-xl"></i></button>
+        </div>
+    </div>
+
+    <!-- INVENTORY MODAL -->
+    <div id="inventoryModal" class="fixed inset-0 z-40 hidden flex items-center justify-center bg-black/80 p-4">
+        <div class="max-w-xl w-full arena-panel p-6 rounded-2xl gold-border relative">
+            <button class="modal-close absolute top-4 right-4 text-amber-400 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="text-xl font-cinzel text-amber-400 font-bold mb-4 flex items-center">
+                <i class="fa-solid fa-briefcase mr-2"></i> Inventory & Equipment
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Equipment Stats -->
+                <div class="bg-black/50 p-3 rounded-xl border border-amber-500/30 text-xs space-y-2">
+                    <h3 class="font-bold text-amber-300 font-cinzel border-b border-amber-500/30 pb-1">Geas' Combat Gear</h3>
+                    <div class="flex justify-between"><span>Weapon:</span><span id="eqWeapon" class="text-amber-400 font-semibold">Bronze Gladiator Sword</span></div>
+                    <div class="flex justify-between"><span>Shield:</span><span id="eqShield" class="text-amber-400 font-semibold">Parthenon Guard Shield</span></div>
+                    <div class="flex justify-between"><span>Armor:</span><span id="eqArmor" class="text-amber-400 font-semibold">Gladiator Chestpiece</span></div>
+                    <div class="flex justify-between"><span>Amulet:</span><span id="eqAmulet" class="text-blue-400 font-semibold">Humble Pendant (+10 Humility)</span></div>
+                    <div class="border-t border-amber-500/30 pt-2 flex justify-between font-bold">
+                        <span>Total Attack:</span><span id="statAtk" class="text-red-400">25</span>
+                    </div>
+                    <div class="flex justify-between font-bold">
+                        <span>Total Defense:</span><span id="statDef" class="text-blue-400">15</span>
+                    </div>
+                </div>
+
+                <!-- Bag Grid -->
+                <div class="space-y-2">
+                    <h3 class="font-bold text-amber-300 text-xs font-cinzel">Items</h3>
+                    <div class="grid grid-cols-3 gap-2" id="bagGrid">
+                        <!-- Dynamic items rendered by JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SKILL TREE MODAL -->
+    <div id="skillsModal" class="fixed inset-0 z-40 hidden flex items-center justify-center bg-black/80 p-4">
+        <div class="max-w-xl w-full arena-panel p-6 rounded-2xl gold-border relative">
+            <button class="modal-close absolute top-4 right-4 text-amber-400 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-cinzel text-amber-400 font-bold flex items-center">
+                    <i class="fa-solid fa-diagram-project mr-2"></i> Skill Tree
+                </h2>
+                <span class="text-xs text-amber-300 bg-amber-900/50 px-2 py-1 rounded border border-amber-500/40">
+                    Skill Points: <span id="skillPoints">2</span>
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="skillsList">
+                <!-- Skill Cards injected JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- QUESTS MODAL -->
+    <div id="questsModal" class="fixed inset-0 z-40 hidden flex items-center justify-center bg-black/80 p-4">
+        <div class="max-w-lg w-full arena-panel p-6 rounded-2xl gold-border relative">
+            <button class="modal-close absolute top-4 right-4 text-amber-400 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="text-xl font-cinzel text-amber-400 font-bold mb-4 flex items-center">
+                <i class="fa-solid fa-scroll mr-2"></i> Parthenon Quests
+            </h2>
+            <div class="space-y-3 max-h-80 overflow-y-auto pr-1" id="questsList">
+                <!-- Quest Cards injected JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- HOSPITAL / MORAL CLINIC ENDING MODAL -->
+    <div id="outcomeModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/95 p-4">
+        <div id="outcomeCard" class="max-w-xl w-full arena-panel p-8 rounded-2xl gold-border text-center space-y-4">
+            <h2 id="outcomeTitle" class="text-3xl font-black font-cinzel gold-gradient-text">GEAS WAS DEFEATED!</h2>
+            <div class="w-20 h-20 mx-auto rounded-full bg-red-950 border-2 border-red-500 flex items-center justify-center text-3xl text-red-400">
+                <i id="outcomeIcon" class="fa-solid fa-user-ninja"></i>
+            </div>
+            <p id="outcomeStory" class="text-sm text-gray-300 italic leading-relaxed">
+                "Geas lost his arms bleeded too much as the result of dying... Geas stabbed his own life because he didn't win that Bull Fight for making pride..."
+            </p>
+            <div class="p-4 bg-amber-950/40 border border-amber-500/50 rounded-xl text-amber-300 text-xs font-bold leading-relaxed">
+                <i class="fa-solid fa-quote-left text-amber-500 mr-2"></i>
+                <span id="outcomeMoral">Moral Lesson: In every destined fight the only way to defeat an enemy is humble, according to this story Geas is defeated with pride so Bullion won because of making humble.</span>
+            </div>
+            <div class="flex justify-center gap-4 pt-2">
+                <button id="btnRetryGame" class="px-6 py-3 bg-gradient-to-r from-amber-600 to-yellow-500 text-black font-bold font-cinzel rounded-xl hover:brightness-125 transition">
+                    RETRY WITH HUMILITY
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* -------------------------------------------------------------
+           GAME DATA & SYSTEM STATE
+        ------------------------------------------------------------- */
+        const gameState = {
+            started: false,
+            cameraMode: 'third', // 'third' or 'first'
+            player: {
+                level: 1,
+                xp: 0,
+                nextXp: 100,
+                hp: 100,
+                maxHp: 100,
+                stamina: 100,
+                maxStamina: 100,
+                pride: 80,    // High Pride makes Geas vulnerable to Bullion!
+                humility: 20, // Humility reduces damage & empowers Humble Strike
+                stance: 'humble', // 'humble' or 'prideful'
+                atk: 25,
+                def: 15,
+                skillPoints: 2,
+                class: 'Gladiator',
+                position: new THREE.Vector3(0, 1, 15),
+                rotation: 0,
+                isAttacking: false,
+                isDodging: false,
+                isParrying: false
+            },
+            boss: {
+                spawned: false,
+                name: 'Bullion',
+                hp: 1000,
+                maxHp: 1000,
+                position: new THREE.Vector3(0, 2, -15),
+                state: 'idle', // 'idle', 'charge', 'slam', 'stunned'
+                chargeTarget: null,
+                timer: 0
+            },
+            inventory: [
+                { id: 'pot1', name: 'Arena Medic Salve', type: 'heal', val: 40, icon: 'fa-vial', qty: 3 },
+                { id: 'amu1', name: 'Sage Humility Token', type: 'humility', val: 30, icon: 'fa-shield-heart', qty: 1 }
+            ],
+            skills: [
+                { id: 'sk1', name: 'Humble Shield', desc: 'Increases defense by 20% and absorbs shockwaves.', unlocked: true },
+                { id: 'sk2', name: 'Geas\' Strike', desc: 'Heavy sword strike powered by warrior focus.', unlocked: false, cost: 1 },
+                { id: 'sk3', name: 'Inner Peace', desc: 'Increases Humility gauge build rate by 50%.', unlocked: false, cost: 1 },
+                { id: 'sk4', name: 'Prideful Rage', desc: 'Increases damage by 40% but doubles damage received.', unlocked: false, cost: 2 }
+            ],
+            quests: [
+                { id: 'q1', title: 'Talk to Arena Master', desc: 'Approach the Arena Master near the entrance pillars.', status: 'active' },
+                { id: 'q2', title: 'Learn Humility from Arena Sage', desc: 'Find the Sage praying near the east Parthenon colonnade.', status: 'locked' },
+                { id: 'q3', title: 'Defeat Minion Gladiators', desc: 'Survive 3 waves of arrogant pit fighters.', status: 'locked', current: 0, target: 3 },
+                { id: 'q4', title: 'Defeat Bullion in the Arena', desc: 'Face Bullion the Mighty Bull with true humility.', status: 'locked' }
+            ],
+            activeMinions: [],
+            keys: {},
+            touch: { forward: false, backward: false, left: false, right: false }
+        };
+
+        /* -------------------------------------------------------------
+           WEB AUDIO API SYNTHESIZER
+        ------------------------------------------------------------- */
+        class SoundFX {
+            constructor() {
+                this.ctx = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playSwordSwing() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playHit() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.2);
+                gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+
+            playBullRoar() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(90, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(120, this.ctx.currentTime + 0.3);
+                osc.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.8);
+                gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.8);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.8);
+            }
+
+            playVictory() {
+                if (!this.ctx) return;
+                const notes = [261.63, 329.63, 392.00, 523.25];
+                notes.forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime + idx * 0.12);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + idx * 0.12 + 0.4);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + idx * 0.12);
+                    osc.stop(this.ctx.currentTime + idx * 0.12 + 0.4);
+                });
+            }
+        }
+
+        const sfx = new SoundFX();
+
+        /* -------------------------------------------------------------
+           THREE.JS 3D SCENE & PARTHENON ENVIRONMENT
+        ------------------------------------------------------------- */
+        let scene, camera, renderer;
+        let playerMesh, bossMesh;
+        let npcs = [];
+        let particles = [];
+
+        function init3DWorld() {
+            const container = document.getElementById('gameCanvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0c0908);
+            scene.fog = new THREE.FogExp2(0x120e0b, 0.02);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            renderer = new THREE.WebGLRenderer({ canvas: container, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            // Ambient & Torch Lighting
+            const ambientLight = new THREE.AmbientLight(0xffeacc, 0.4);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffd59e, 1.2);
+            sunLight.position.set(20, 40, 20);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            scene.add(sunLight);
+
+            // Arena Torch Lights
+            const torchColors = [0xff6600, 0xff3300, 0xffaa00];
+            const torchPositions = [
+                [-18, 5, -18], [18, 5, -18], [-18, 5, 18], [18, 5, 18]
+            ];
+            torchPositions.forEach((pos, idx) => {
+                const torchLight = new THREE.PointLight(torchColors[idx % 3], 2, 25);
+                torchLight.position.set(pos[0], pos[1], pos[2]);
+                scene.add(torchLight);
+
+                // Torch Pillar
+                const torchGeom = new THREE.CylinderGeometry(0.3, 0.4, 5, 8);
+                const torchMat = new THREE.MeshStandardMaterial({ color: 0x332211, roughness: 0.8 });
+                const torchPillar = new THREE.Mesh(torchGeom, torchMat);
+                torchPillar.position.set(pos[0], 2.5, pos[2]);
+                scene.add(torchPillar);
+            });
+
+            buildParthenonArena();
+            buildPlayerMesh();
+            buildNPCs();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function buildParthenonArena() {
+            // Sand Floor
+            const floorGeom = new THREE.CylinderGeometry(32, 32, 1, 32);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0xc2a672, roughness: 0.9 });
+            const floor = new THREE.Mesh(floorGeom, floorMat);
+            floor.position.y = -0.5;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Outer Marble Wall & Ring
+            const wallGeom = new THREE.CylinderGeometry(33, 33, 4, 32, 1, true);
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x8c8275, roughness: 0.6, side: THREE.DoubleSide });
+            const wall = new THREE.Mesh(wallGeom, wallMat);
+            wall.position.y = 2;
+            scene.add(wall);
+
+            // Parthenon Columns Colonnade
+            const columnCount = 24;
+            const radius = 28;
+            const colGeom = new THREE.CylinderGeometry(0.9, 1.1, 12, 16);
+            const colMat = new THREE.MeshStandardMaterial({ color: 0xded2c1, roughness: 0.5 });
+
+            for (let i = 0; i < columnCount; i++) {
+                const angle = (i / columnCount) * Math.PI * 2;
+                const x = Math.cos(angle) * radius;
+                const z = Math.sin(angle) * radius;
+
+                const column = new THREE.Mesh(colGeom, colMat);
+                column.position.set(x, 6, z);
+                column.castShadow = true;
+                column.receiveShadow = true;
+                scene.add(column);
+            }
+
+            // Spectators in the Stands (Simple Visual Blocks)
+            const specGeom = new THREE.BoxGeometry(0.6, 1.2, 0.6);
+            for (let i = 0; i < 40; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const r = 30 + Math.random() * 2;
+                const specMat = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
+                const spectator = new THREE.Mesh(specGeom, specMat);
+                spectator.position.set(Math.cos(angle) * r, 4.5, Math.sin(angle) * r);
+                scene.add(spectator);
+            }
+        }
+
+        function buildPlayerMesh() {
+            // Geas Character Assembly
+            const group = new THREE.Group();
+
+            // Body
+            const bodyGeom = new THREE.CylinderGeometry(0.5, 0.4, 1.6, 8);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xb52a2a, roughness: 0.4 }); // Red Gladiator
+            const body = new THREE.Mesh(bodyGeom, bodyMat);
+            body.position.y = 0.8;
+            body.castShadow = true;
+            group.add(body);
+
+            // Head
+            const headGeom = new THREE.SphereGeometry(0.35, 12, 12);
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xe0ac69 });
+            const head = new THREE.Mesh(headGeom, headMat);
+            head.position.y = 1.8;
+            group.add(head);
+
+            // Helmet
+            const helmGeom = new THREE.ConeGeometry(0.4, 0.4, 8);
+            const helmMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.8, roughness: 0.2 });
+            const helm = new THREE.Mesh(helmGeom, helmMat);
+            helm.position.y = 2.1;
+            group.add(helm);
+
+            // Sword
+            const swordGeom = new THREE.BoxGeometry(0.1, 1.4, 0.2);
+            const swordMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.9, roughness: 0.1 });
+            const sword = new THREE.Mesh(swordGeom, swordMat);
+            sword.position.set(0.6, 1.0, 0.3);
+            sword.rotation.x = Math.PI / 4;
+            group.add(sword);
+
+            group.position.copy(gameState.player.position);
+            scene.add(group);
+            playerMesh = group;
+        }
+
+        function spawnBullionBoss() {
+            if (gameState.boss.spawned) return;
+
+            const group = new THREE.Group();
+
+            // Massive Bull Body
+            const bodyGeom = new THREE.BoxGeometry(2.2, 2.0, 3.2);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x221a15, roughness: 0.8 });
+            const body = new THREE.Mesh(bodyGeom, bodyMat);
+            body.position.y = 1.5;
+            body.castShadow = true;
+            group.add(body);
+
+            // Bull Head
+            const headGeom = new THREE.BoxGeometry(1.4, 1.2, 1.4);
+            const headMat = new THREE.MeshStandardMaterial({ color: 0x110c08 });
+            const head = new THREE.Mesh(headGeom, headMat);
+            head.position.set(0, 2.0, -1.8);
+            group.add(head);
+
+            // Horns
+            const hornMat = new THREE.MeshStandardMaterial({ color: 0xe6e0d4, metalness: 0.5 });
+            const leftHorn = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.4, 8), hornMat);
+            leftHorn.position.set(-0.9, 2.6, -2.1);
+            leftHorn.rotation.z = Math.PI / 4;
+            leftHorn.rotation.x = -Math.PI / 4;
+            group.add(leftHorn);
+
+            const rightHorn = new THREE.Mesh(new THREE.ConeGeometry(0.2, 1.4, 8), hornMat);
+            rightHorn.position.set(0.9, 2.6, -2.1);
+            rightHorn.rotation.z = -Math.PI / 4;
+            rightHorn.rotation.x = -Math.PI / 4;
+            group.add(rightHorn);
+
+            // Eyes (Glowing Red/Gold)
+            const eyeGeom = new THREE.SphereGeometry(0.12, 8, 8);
+            const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+            const leftEye = new THREE.Mesh(eyeGeom, eyeMat);
+            leftEye.position.set(-0.4, 2.2, -2.5);
+            const rightEye = new THREE.Mesh(eyeGeom, eyeMat);
+            rightEye.position.set(0.4, 2.2, -2.5);
+            group.add(leftEye);
+            group.add(rightEye);
+
+            group.position.copy(gameState.boss.position);
+            scene.add(group);
+            bossMesh = group;
+
+            gameState.boss.spawned = true;
+            document.getElementById('bossPanel').classList.remove('opacity-0', '-translate-y-4');
+            sfx.playBullRoar();
+            updateDialogue("BULLION THE MIGHTY BULL HAS ENTERED THE PARTHENON!", "He stands full of humble dignity. Geas' pride will be tested!");
+        }
+
+        function buildNPCs() {
+            // NPC 1: Arena Master (Entrance)
+            const masterGeom = new THREE.CylinderGeometry(0.5, 0.5, 1.8, 8);
+            const masterMat = new THREE.MeshStandardMaterial({ color: 0xd4af37 });
+            const master = new THREE.Mesh(masterGeom, masterMat);
+            master.position.set(0, 0.9, 10);
+            scene.add(master);
+            npcs.push({ name: 'Arena Master', mesh: master, type: 'master' });
+
+            // NPC 2: Arena Sage (Colonnade)
+            const sageGeom = new THREE.CylinderGeometry(0.4, 0.4, 1.7, 8);
+            const sageMat = new THREE.MeshStandardMaterial({ color: 0x3b82f6 });
+            const sage = new THREE.Mesh(sageGeom, sageMat);
+            sage.position.set(15, 0.85, 0);
+            scene.add(sage);
+            npcs.push({ name: 'Arena Sage', mesh: sage, type: 'sage' });
+
+            // NPC 3: Medic / Hospital Doctor
+            const medicGeom = new THREE.CylinderGeometry(0.4, 0.4, 1.7, 8);
+            const medicMat = new THREE.MeshStandardMaterial({ color: 0x10b981 });
+            const medic = new THREE.Mesh(medicGeom, medicMat);
+            medic.position.set(-15, 0.85, 0);
+            scene.add(medic);
+            npcs.push({ name: 'Arena Medic', mesh: medic, type: 'medic' });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        /* -------------------------------------------------------------
+           CONTROLS & GAMEPLAY LOOP
+        ------------------------------------------------------------- */
+        function initControls() {
+            window.addEventListener('keydown', (e) => {
+                gameState.keys[e.code] = true;
+
+                if (e.code === 'KeyF') {
+                    gameState.cameraMode = gameState.cameraMode === 'third' ? 'first' : 'third';
+                }
+                if (e.code === 'Space') {
+                    dodgePlayer();
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                gameState.keys[e.code] = false;
+            });
+
+            window.addEventListener('mousedown', (e) => {
+                if (!gameState.started) return;
+                if (e.button === 0) attackPlayer('light');
+                if (e.button === 2) attackPlayer('heavy');
+            });
+
+            window.addEventListener('contextmenu', e => e.preventDefault());
+
+            // Touch button event bindings
+            bindTouch('btnUp', 'forward');
+            bindTouch('btnDown', 'backward');
+            bindTouch('btnLeft', 'left');
+            bindTouch('btnRight', 'right');
+
+            document.getElementById('btnTouchAttack').addEventListener('click', () => attackPlayer('light'));
+            document.getElementById('btnTouchDodge').addEventListener('click', dodgePlayer);
+        }
+
+        function bindTouch(id, key) {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); gameState.touch[key] = true; });
+            btn.addEventListener('touchend', (e) => { e.preventDefault(); gameState.touch[key] = false; });
+        }
+
+        function updatePlayerMovement(delta) {
+            if (gameState.player.hp <= 0) return;
+
+            const speed = 8.0 * delta;
+            let moveVector = new THREE.Vector3();
+
+            if (gameState.keys['KeyW'] || gameState.keys['ArrowUp'] || gameState.touch.forward) moveVector.z -= 1;
+            if (gameState.keys['KeyS'] || gameState.keys['ArrowDown'] || gameState.touch.backward) moveVector.z += 1;
+            if (gameState.keys['KeyA'] || gameState.keys['ArrowLeft'] || gameState.touch.left) moveVector.x -= 1;
+            if (gameState.keys['KeyD'] || gameState.keys['ArrowRight'] || gameState.touch.right) moveVector.x += 1;
+
+            if (moveVector.lengthSq() > 0) {
+                moveVector.normalize();
+                gameState.player.position.x += moveVector.x * speed;
+                gameState.player.position.z += moveVector.z * speed;
+
+                // Clamp within arena circular radius
+                const distFromCenter = Math.sqrt(gameState.player.position.x ** 2 + gameState.player.position.z ** 2);
+                if (distFromCenter > 26) {
+                    gameState.player.position.x = (gameState.player.position.x / distFromCenter) * 26;
+                    gameState.player.position.z = (gameState.player.position.z / distFromCenter) * 26;
+                }
+
+                gameState.player.rotation = Math.atan2(moveVector.x, moveVector.z);
+                playerMesh.rotation.y = gameState.player.rotation;
+            }
+
+            playerMesh.position.copy(gameState.player.position);
+
+            // Camera follow behavior
+            if (gameState.cameraMode === 'third') {
+                camera.position.set(
+                    gameState.player.position.x,
+                    gameState.player.position.y + 6,
+                    gameState.player.position.z + 10
+                );
+                camera.lookAt(gameState.player.position.x, gameState.player.position.y + 1, gameState.player.position.z);
+            } else {
+                // First Person Camera
+                camera.position.set(
+                    gameState.player.position.x,
+                    gameState.player.position.y + 1.8,
+                    gameState.player.position.z
+                );
+                const lookTarget = new THREE.Vector3(
+                    gameState.player.position.x + Math.sin(gameState.player.rotation) * 5,
+                    gameState.player.position.y + 1.8,
+                    gameState.player.position.z + Math.cos(gameState.player.rotation) * 5
+                );
+                camera.lookAt(lookTarget);
+            }
+
+            // Stamina regeneration
+            if (gameState.player.stamina < gameState.player.maxStamina) {
+                gameState.player.stamina = Math.min(gameState.player.maxStamina, gameState.player.stamina + delta * 15);
+                updateHUD();
+            }
+
+            // Check proximity to NPCs
+            checkNPCInteractions();
+        }
+
+        function attackPlayer(type) {
+            if (gameState.player.isAttacking) return;
+            const staminaCost = type === 'light' ? 15 : 30;
+            if (gameState.player.stamina < staminaCost) return;
+
+            gameState.player.stamina -= staminaCost;
+            gameState.player.isAttacking = true;
+            sfx.playSwordSwing();
+
+            // Swing Animation
+            playerMesh.children[3].rotation.x = -Math.PI / 2;
+
+            setTimeout(() => {
+                playerMesh.children[3].rotation.x = Math.PI / 4;
+                gameState.player.isAttacking = false;
+            }, 300);
+
+            // Hit Detection against Boss
+            if (gameState.boss.spawned) {
+                const distToBoss = gameState.player.position.distanceTo(gameState.boss.position);
+                if (distToBoss < 4.5) {
+                    let baseDmg = type === 'light' ? gameState.player.atk : gameState.player.atk * 1.8;
+
+                    // MORAL LESSON COMBAT MECHANIC:
+                    // If Geas attacks while Pride is high (> 50%), Bullion deflects damage due to Geas' arrogance!
+                    if (gameState.player.pride > 50) {
+                        baseDmg *= 0.3; // 70% damage reduction penalty!
+                        updateDialogue("BULLION DEFLECTS YOUR STRIKE!", "Geas is fighting with arrogance! 'In every destined fight the only way to defeat an enemy is humble!'");
+                    } else {
+                        baseDmg *= 1.5; // Bonus damage when Humble!
+                    }
+
+                    gameState.boss.hp = Math.max(0, gameState.boss.hp - Math.round(baseDmg));
+                    sfx.playHit();
+                    updateHUD();
+
+                    if (gameState.boss.hp <= 0) {
+                        winBossBattle();
+                    }
+                }
+            }
+        }
+
+        function dodgePlayer() {
+            if (gameState.player.isDodging || gameState.player.stamina < 20) return;
+            gameState.player.stamina -= 20;
+            gameState.player.isDodging = true;
+
+            const dodgeDir = new THREE.Vector3(
+                Math.sin(gameState.player.rotation) * 4,
+                0,
+                Math.cos(gameState.player.rotation) * 4
+            );
+            gameState.player.position.add(dodgeDir);
+
+            setTimeout(() => {
+                gameState.player.isDodging = false;
+            }, 400);
+        }
+
+        function updateBossAI(delta) {
+            if (!gameState.boss.spawned || gameState.boss.hp <= 0) return;
+
+            const distToPlayer = gameState.boss.position.distanceTo(gameState.player.position);
+            gameState.boss.timer += delta;
+
+            if (gameState.boss.state === 'idle') {
+                gameState.boss.position.lookAt(gameState.player.position);
+
+                if (distToPlayer < 12 && gameState.boss.timer > 2.5) {
+                    gameState.boss.state = 'charge';
+                    gameState.boss.timer = 0;
+                    gameState.boss.chargeTarget = gameState.player.position.clone();
+                    sfx.playBullRoar();
+                }
+            } else if (gameState.boss.state === 'charge') {
+                const chargeSpeed = 14 * delta;
+                const dir = new THREE.Vector3().subVectors(gameState.boss.chargeTarget, gameState.boss.position).normalize();
+                gameState.boss.position.add(dir.multiplyScalar(chargeSpeed));
+
+                if (distToPlayer < 2.2 && !gameState.player.isDodging) {
+                    // Deal heavy damage to Geas
+                    let dmg = 35;
+                    if (gameState.player.pride > 60) dmg *= 1.5; // Arrogance penalty!
+
+                    gameState.player.hp = Math.max(0, gameState.player.hp - Math.round(dmg));
+                    sfx.playHit();
+                    updateHUD();
+
+                    if (gameState.player.hp <= 0) {
+                        triggerHospitalOutcome();
+                    }
+                }
+
+                if (gameState.boss.timer > 1.8) {
+                    gameState.boss.state = 'idle';
+                    gameState.boss.timer = 0;
+                }
+            }
+
+            bossMesh.position.copy(gameState.boss.position);
+        }
+
+        function checkNPCInteractions() {
+            npcs.forEach(npc => {
+                const dist = gameState.player.position.distanceTo(npc.mesh.position);
+                if (dist < 3) {
+                    if (npc.type === 'master' && gameState.quests[0].status === 'active') {
+                        updateDialogue("Arena Master", "Greetings Geas! The Parthenon crowd hungers for 'The Bull Fight'. But beware: your pride will lead to your doom against Bullion.");
+                        gameState.quests[0].status = 'completed';
+                        gameState.quests[1].status = 'active';
+                        updateQuestsList();
+                    } else if (npc.type === 'sage' && gameState.quests[1].status === 'active') {
+                        updateDialogue("Arena Sage", "Geas, listen closely: 'The bull named Bullion is full of humble. Geas is brutally underestimating the bull.' Learn humility now!");
+                        gameState.player.pride = 20;
+                        gameState.player.humility = 80;
+                        gameState.quests[1].status = 'completed';
+                        gameState.quests[3].status = 'active';
+                        updateHUD();
+                        updateQuestsList();
+                        spawnBullionBoss();
+                    }
+                }
+            });
+        }
+
+        function updateDialogue(speaker, text) {
+            const box = document.getElementById('dialogueBox');
+            document.getElementById('dialogueSpeaker').innerText = speaker;
+            document.getElementById('dialogueText').innerText = text;
+            box.classList.remove('hidden');
+        }
+
+        function updateHUD() {
+            document.getElementById('hpText').innerText = `${gameState.player.hp} / ${gameState.player.maxHp}`;
+            document.getElementById('hpBar').style.width = `${(gameState.player.hp / gameState.player.maxHp) * 100}%`;
+            document.getElementById('staminaBar').style.width = `${(gameState.player.stamina / gameState.player.maxStamina) * 100}%`;
+
+            document.getElementById('prideVal').innerText = `${gameState.player.pride}%`;
+            document.getElementById('humilityVal').innerText = `${gameState.player.humility}%`;
+            document.getElementById('prideBar').style.width = `${gameState.player.pride}%`;
+
+            if (gameState.boss.spawned) {
+                document.getElementById('bossHpText').innerText = `${gameState.boss.hp} / ${gameState.boss.maxHp}`;
+                document.getElementById('bossHpBar').style.width = `${(gameState.boss.hp / gameState.boss.maxHp) * 100}%`;
+            }
+
+            renderMinimap();
+        }
+
+        function renderMinimap() {
+            const canvas = document.getElementById('minimapCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, 96, 96);
+
+            ctx.fillStyle = '#1c130c';
+            ctx.fillRect(0, 0, 96, 96);
+
+            // Arena Ring
+            ctx.strokeStyle = '#d4af37';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(48, 48, 40, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Player Marker
+            ctx.fillStyle = '#10b981';
+            ctx.beginPath();
+            ctx.arc(48 + gameState.player.position.x * 1.2, 48 + gameState.player.position.z * 1.2, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Boss Marker
+            if (gameState.boss.spawned) {
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(48 + gameState.boss.position.x * 1.2, 48 + gameState.boss.position.z * 1.2, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function triggerHospitalOutcome() {
+            document.getElementById('outcomeModal').classList.remove('hidden');
+            document.getElementById('outcomeTitle').innerText = "GEAS WAS DEFEATED!";
+            document.getElementById('outcomeStory').innerText =
+                "Geas lost his arms bleeded too much as the result of dying. Geas stabbed his own life because he don't win that Bull Fight for making pride that's why happen for Geas he make a suicide in lack of confidence.";
+            document.getElementById('outcomeMoral').innerText =
+                "Moral Lesson: In every destined fight the only way to defeat an enemy is humble, according to this story Geas is defeated with pride so Bullion won because of making humble.";
+        }
+
+        function winBossBattle() {
+            sfx.playVictory();
+            document.getElementById('outcomeModal').classList.remove('hidden');
+            document.getElementById('outcomeTitle').innerText = "VICTORY THROUGH HUMILITY!";
+            document.getElementById('outcomeStory').innerText =
+                "Geas learned to set aside his arrogance and fought Bullion with true humble spirit! Bullion bows in respect to Geas, the champion of Parthenon!";
+            document.getElementById('outcomeMoral').innerText =
+                "Moral Lesson Achieved: In every destined fight the only way to defeat an enemy is humble!";
+        }
+
+        function initUIEvents() {
+            // Main menu & story modal
+            document.getElementById('btnStartGame').addEventListener('click', () => {
+                sfx.init();
+                document.getElementById('mainMenu').classList.add('hidden');
+                document.getElementById('gameHUD').classList.remove('hidden');
+                gameState.started = true;
+            });
+
+            document.getElementById('btnStoryModal').addEventListener('click', () => {
+                document.getElementById('storyModal').classList.remove('hidden');
+            });
+            document.getElementById('btnCloseStory').addEventListener('click', () => {
+                document.getElementById('storyModal').classList.add('hidden');
+            });
+
+            // Modals toggle
+            document.getElementById('btnOpenInventory').addEventListener('click', () => {
+                document.getElementById('inventoryModal').classList.remove('hidden');
+                renderBagGrid();
+            });
+            document.getElementById('btnOpenSkills').addEventListener('click', () => {
+                document.getElementById('skillsModal').classList.remove('hidden');
+                renderSkillsList();
+            });
+            document.getElementById('btnOpenQuests').addEventListener('click', () => {
+                document.getElementById('questsModal').classList.remove('hidden');
+                updateQuestsList();
+            });
+
+            document.querySelectorAll('.modal-close').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.target.closest('.z-40').classList.add('hidden');
+                });
+            });
+
+            document.getElementById('btnCloseDialogue').addEventListener('click', () => {
+                document.getElementById('dialogueBox').classList.add('hidden');
+            });
+
+            // Stance Toggle Button
+            document.getElementById('btnToggleStance').addEventListener('click', () => {
+                if (gameState.player.stance === 'humble') {
+                    gameState.player.stance = 'prideful';
+                    gameState.player.pride = 80;
+                    gameState.player.humility = 20;
+                    document.getElementById('stanceText').innerText = "Stance: Prideful Strike";
+                } else {
+                    gameState.player.stance = 'humble';
+                    gameState.player.pride = 20;
+                    gameState.player.humility = 80;
+                    document.getElementById('stanceText').innerText = "Stance: Humble Guard";
+                }
+                updateHUD();
+            });
+
+            document.getElementById('btnRetryGame').addEventListener('click', () => {
+                window.location.reload();
+            });
+        }
+
+        function renderBagGrid() {
+            const grid = document.getElementById('bagGrid');
+            grid.innerHTML = '';
+            gameState.inventory.forEach(item => {
+                const el = document.createElement('div');
+                el.className = 'bg-gray-900/80 p-2 rounded-lg border border-amber-500/30 text-center space-y-1 cursor-pointer hover:border-amber-400';
+                el.innerHTML = `
+                    <i class="fa-solid ${item.icon} text-lg text-amber-400"></i>
+                    <div class="text-[10px] font-bold text-gray-200">${item.name}</div>
+                    <div class="text-[9px] text-gray-400">Qty: ${item.qty}</div>
+                `;
+                el.addEventListener('click', () => {
+                    if (item.type === 'heal') {
+                        gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + item.val);
+                        item.qty--;
+                        updateHUD();
+                        renderBagGrid();
+                    }
+                });
+                grid.appendChild(el);
+            });
+        }
+
+        function renderSkillsList() {
+            const container = document.getElementById('skillsList');
+            container.innerHTML = '';
+            gameState.skills.forEach(sk => {
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-xl border text-xs space-y-1 ${sk.unlocked ? 'bg-amber-950/40 border-amber-500' : 'bg-black/60 border-gray-700'}`;
+                card.innerHTML = `
+                    <div class="flex justify-between font-bold text-amber-300">
+                        <span>${sk.name}</span>
+                        <span>${sk.unlocked ? 'UNLOCKED' : 'Cost: ' + sk.cost + ' SP'}</span>
+                    </div>
+                    <p class="text-[11px] text-gray-300">${sk.desc}</p>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function updateQuestsList() {
+            const list = document.getElementById('questsList');
+            list.innerHTML = '';
+            gameState.quests.forEach(q => {
+                const item = document.createElement('div');
+                item.className = 'p-3 rounded-lg bg-black/50 border border-amber-500/30 text-xs space-y-1';
+                item.innerHTML = `
+                    <div class="flex justify-between font-bold text-amber-300">
+                        <span>${q.title}</span>
+                        <span class="${q.status === 'completed' ? 'text-emerald-400' : 'text-amber-400'} capitalize">${q.status}</span>
+                    </div>
+                    <p class="text-gray-400 text-[11px]">${q.desc}</p>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        /* Main Loop Initialization */
+        let lastTime = performance.now();
+        function gameLoop(time) {
+            const delta = Math.min((time - lastTime) / 1000, 0.1);
+            lastTime = time;
+
+            if (gameState.started) {
+                updatePlayerMovement(delta);
+                updateBossAI(delta);
+            }
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = function() {
+            init3DWorld();
+            initControls();
+            initUIEvents();
+            requestAnimationFrame(gameLoop);
+        };
+    </script>
+</body>
+</html>
